@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.js"></script>
+    <script src="./hls.js"></script>
+
+</head>
+<body>
+<div id="dplayer"></div>
+
+
+<script>
+
+    function toBlob(s) {
+        const url = new URL(s);
+        const type = url.searchParams.get('type')
+        const callback = url.searchParams.get('callback')
+        let promise = null;
+        const script = document.createElement('script');
+        script.type = 'text/javascript';
+        // 传参一个回调函数名给后端，方便后端返回时执行这个在前端定义的回调函数
+
+        if (type === 'application/x-mpegurl') {
+            promise = new Promise((resolve, reject) => {
+                window[callback] = function (data) {
+                    try {
+                        resolve(URL.createObjectURL(new Blob([
+                            data
+                        ], {type: type})))
+                    } catch (err) {
+                        reject(err)
+                    }
+                    script.remove()
+                    delete window[callback]
+                }
+            })
+        } else if (type === 'video/mp2t') {
+            promise = new Promise((resolve, reject) => {
+                window[callback] = function (data) {
+                    try {
+                        const bytes = atob(data);
+                        const bytesCode = new ArrayBuffer(bytes.length);
+                        // 转换为类型化数组
+                        const byteArray = new Uint8Array(bytesCode);
+                        // 将base64转换为ascii码
+                        for (let i = 0; i < bytes.length; i++) {
+                            byteArray[i] = bytes.charCodeAt(i);
+                        }
+                        // 生成Blob对象（文件对象）
+                        resolve(URL.createObjectURL(new Blob([
+                            bytesCode
+                        ], {type: type})))
+                    } catch (err) {
+                        reject(err)
+                    }
+                    script.remove()
+                    delete window[callback]
+                }
+            })
+        }
+        script.src = s;
+        document.head.appendChild(script);
+        return promise
+    }
+
+    const dp = new DPlayer({
+        container: document.getElementById('dplayer'),
+        video: {
+            url: 'https://bj.bcebos.com/im-cs/fa4a49fe357f1ffc5c1f42606bce92d6.txt?type=application/x-mpegurl&callback=callback1630477268492',
+            type: 'hls',
+        },
+        pluginOptions: {
+            hls: {
+                xhrSetup: async (xhr, url) => {
+                    const blobUrl = await toBlob(url)
+                    xhr.open('GET', blobUrl, true);
+                    xhr.send()
+                }
+            },
+        },
+    });
+    console.log(dp.plugins.hls); // Hls 实例
+
+
+</script>
+</body>
+</html>
